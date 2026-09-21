@@ -4,19 +4,61 @@
 real = AD(high, low, close, volume)
 ```
 
-Learn more about the Chaikin A/D Line at [tadoc.org](http://www.tadoc.org/indicator/AD.htm).  
 ### ADOSC - Chaikin A/D Oscillator
 ```python
 real = ADOSC(high, low, close, volume, fastperiod=3, slowperiod=10)
 ```
 
-Learn more about the Chaikin A/D Oscillator at [tadoc.org](http://www.tadoc.org/indicator/ADOSC.htm).  
+### CMF - Chaikin Money Flow
+```python
+real = CMF(high, low, close, volume, timeperiod=20)
+```
+
+### EFI - Elder's Force Index
+```python
+real = EFI(close, volume, timeperiod=13)
+```
+
+### MARKETFI - Market Facilitation Index
+```python
+real = MARKETFI(high, low, volume)
+```
+
+### NVI - Negative Volume Index
+```python
+real = NVI(close, volume)
+```
+
 ### OBV - On Balance Volume
 ```python
 real = OBV(close, volume)
 ```
 
-Learn more about the On Balance Volume at [tadoc.org](http://www.tadoc.org/indicator/OBV.htm).  
+### PVI - Positive Volume Index
+```python
+real = PVI(close, volume)
+```
 
-[Documentation Index](../doc_index.html)
-[FLOAT_RIGHTAll Function Groups](../funcs.html)
+### PVO - Percentage Volume Oscillator
+```python
+real = PVO(volume, fastperiod=12, slowperiod=26, matype=1)
+```
+
+### PVT - Price Volume Trend
+```python
+real = PVT(close, volume)
+```
+
+### RVOL - Relative Volume
+```python
+real = RVOL(volume, timeperiod=20)
+```
+
+### VWAP - Volume Weighted Average Price
+```python
+real = VWAP(high, low, close, volume)
+```
+
+
+[Documentation Index](../doc_index.md)
+[FLOAT_RIGHTAll Function Groups](../funcs.md)

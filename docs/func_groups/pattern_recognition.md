@@ -14,7 +14,7 @@ integer = CDL3BLACKCROWS(open, high, low, close)
 integer = CDL3INSIDE(open, high, low, close)
 ```
 
-### CDL3LINESTRIKE - Three-Line Strike 
+### CDL3LINESTRIKE - Three-Line Strike
 ```python
 integer = CDL3LINESTRIKE(open, high, low, close)
 ```
@@ -305,5 +305,5 @@ integer = CDLXSIDEGAP3METHODS(open, high, low, close)
 ```
 
 
-[Documentation Index](../doc_index.html)
-[FLOAT_RIGHTAll Function Groups](../funcs.html)
+[Documentation Index](../doc_index.md)
+[FLOAT_RIGHTAll Function Groups](../funcs.md)

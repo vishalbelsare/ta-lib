@@ -1,28 +1,35 @@
 # Price Transform Functions
+### AVGDEV - Average Deviation
+```python
+real = AVGDEV(close, timeperiod=14)
+```
+
 ### AVGPRICE - Average Price
 ```python
 real = AVGPRICE(open, high, low, close)
 ```
 
-Learn more about the Average Price at [tadoc.org](http://www.tadoc.org/indicator/AVGPRICE.htm).  
+### HA - Heikin-Ashi Candles
+NOTE: The ``HA`` function has an unstable period.  
+```python
+haopen, hahigh, halow, haclose = HA(open, high, low, close)
+```
+
 ### MEDPRICE - Median Price
 ```python
 real = MEDPRICE(high, low)
 ```
 
-Learn more about the Median Price at [tadoc.org](http://www.tadoc.org/indicator/MEDPRICE.htm).  
 ### TYPPRICE - Typical Price
 ```python
 real = TYPPRICE(high, low, close)
 ```
 
-Learn more about the Typical Price at [tadoc.org](http://www.tadoc.org/indicator/TYPPRICE.htm).  
 ### WCLPRICE - Weighted Close Price
 ```python
 real = WCLPRICE(high, low, close)
 ```
 
-Learn more about the Weighted Close Price at [tadoc.org](http://www.tadoc.org/indicator/WCLPRICE.htm).  
 
-[Documentation Index](../doc_index.html)
-[FLOAT_RIGHTAll Function Groups](../funcs.html)
+[Documentation Index](../doc_index.md)
+[FLOAT_RIGHTAll Function Groups](../funcs.md)

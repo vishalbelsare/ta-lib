@@ -1,6 +1,6 @@
 # About
 
-This is a Python wrapper for [TA-LIB](http://ta-lib.org) based on Cython
+This is a Python wrapper for [TA-LIB](https://ta-lib.org) based on Cython
 instead of SWIG. From the homepage:
 
 > TA-Lib is widely used by trading software developers requiring to perform
@@ -11,7 +11,7 @@ instead of SWIG. From the homepage:
 > * Candlestick pattern recognition
 > * Open-source API for C/C++, Java, Perl, Python and 100% Managed .NET
 
-The original Python bindings use [SWIG](http://swig.org) which unfortunately
+The original Python bindings use [SWIG](https://swig.org) which unfortunately
 are difficult to install and aren't as efficient as they could be. Therefore
 this project uses Cython and Numpy to efficiently and cleanly bind to TA-Lib
 -- producing results 2-4 times faster than the SWIG interface.
@@ -27,6 +27,10 @@ Each function returns an output array and have default values for their
 parameters, unless specified as keyword arguments. Typically, these functions
 will have an initial "lookback" period (a required number of observations
 before an output is generated) set to ``NaN``.
+
+The lookback is function-specific and may be larger than the `timeperiod`
+parameter. For example, ``RSI(timeperiod=14)`` needs 15 price observations,
+because the first RSI value is based on 14 consecutive price changes.
 
 All of the following examples use the function API:
 
@@ -56,6 +60,10 @@ Calculating momentum of the close prices, with a time period of 5:
 ```python
 output = talib.MOM(close, timeperiod=5)
 ```
+
+Functions documented as having an unstable period start with that extra
+unstable-period setting at ``0``. ``get_unstable_period()`` only reports a
+non-zero value after you call ``set_unstable_period()`` yourself.
 
 ## Abstract API Quick Start
 

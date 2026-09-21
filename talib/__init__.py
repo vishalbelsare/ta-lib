@@ -7,7 +7,15 @@ from functools import wraps
 # polars.Series input
 try:
     from polars import Series as _pl_Series
-except ImportError:
+except ImportError as import_error:
+    try:
+        if not isinstance(import_error, ModuleNotFoundError) or import_error.name != 'polars':
+            # Propagate the error when the module exists but failed to be imported.
+            raise import_error
+    # `ModuleNotFoundError` was introduced in Python 3.6.
+    except NameError:
+        pass
+
     # polars not available, nothing to wrap
     _pl_Series = None
 
@@ -15,7 +23,15 @@ except ImportError:
 # pandas.Series input
 try:
     from pandas import Series as _pd_Series
-except ImportError:
+except ImportError as import_error:
+    try:
+        if not isinstance(import_error, ModuleNotFoundError) or import_error.name != 'pandas':
+            # Propagate the error when the module exists but failed to be imported.
+            raise import_error
+    # `ModuleNotFoundError` was introduced in Python 3.6.
+    except NameError:
+        pass
+
     # pandas not available, nothing to wrap
     _pd_Series = None
 
@@ -63,12 +79,6 @@ if _pl_Series is not None or _pd_Series is not None:
 
             result = func(*_args, **_kwds)
 
-            # check to see if we got a streaming result
-            first_result = result[0] if isinstance(result, tuple) else result
-            is_streaming_fn_result = not hasattr(first_result, '__len__')
-            if is_streaming_fn_result:
-                return result
-
             # Series was passed in, Series gets out
             if use_pl:
                 if isinstance(result, tuple):
@@ -90,14 +100,31 @@ else:
     _wrapper = lambda x: x
 
 
-from ._ta_lib import (
-    _ta_initialize, _ta_shutdown, MA_Type, __ta_version__,
-    _ta_set_unstable_period as set_unstable_period,
-    _ta_get_unstable_period as get_unstable_period,
-    _ta_set_compatibility as set_compatibility,
-    _ta_get_compatibility as get_compatibility,
-    __TA_FUNCTION_NAMES__
-)
+# The TA-Lib C library this wrapper is built against
+TA_LIB_C_REQUIRED = '0.8.1'
+
+try:
+    from ._ta_lib import (
+        _ta_initialize, _ta_shutdown, MA_Type, __ta_version__,
+        _ta_set_unstable_period as set_unstable_period,
+        _ta_get_unstable_period as get_unstable_period,
+        _ta_set_compatibility as set_compatibility,
+        _ta_get_compatibility as get_compatibility,
+        InsufficientHistory,
+        __TA_FUNCTION_NAMES__
+    )
+except ImportError as error:
+    # Loading the extension resolves its symbols against whatever TA-Lib C is
+    # installed. Linking never catches a too-old library -- a shared object may
+    # keep undefined symbols -- so a missing function shows up here instead, as
+    # "undefined symbol: TA_CMF_Lookback" or the macOS/Windows equivalent.
+    raise ImportError(
+        '%s\n\n'
+        'talib could not load its extension module. This build requires the '
+        'TA-Lib C library %s or later; an older one is missing functions this '
+        'wrapper calls. See https://ta-lib.org/install/'
+        % (error, TA_LIB_C_REQUIRED)
+    ) from error
 
 # import all the func and stream functions
 from ._ta_lib import *
@@ -109,14 +136,9 @@ for func_name in __TA_FUNCTION_NAMES__:
     setattr(func, func_name, wrapped_func)
     globals()[func_name] = wrapped_func
 
-stream_func_names = ['stream_%s' % fname for fname in __TA_FUNCTION_NAMES__]
-stream = __import__("stream", globals(), locals(), stream_func_names, level=1)
-for func_name, stream_func_name in zip(__TA_FUNCTION_NAMES__, stream_func_names):
-    wrapped_func = _wrapper(getattr(stream, func_name))
-    setattr(stream, func_name, wrapped_func)
-    globals()[stream_func_name] = wrapped_func
+from . import stream
 
-__version__ = '0.4.22'
+__version__ = '0.8.1'
 
 # In order to use this python library, talib (i.e. this __file__) will be
 # imported at some point, either explicitly or indirectly via talib.func
@@ -138,6 +160,7 @@ __function_groups__ = {
         ],
     'Math Operators': [
         'ADD',
+        'CUMSUM',
         'DIV',
         'MAX',
         'MAXINDEX',
@@ -167,15 +190,26 @@ __function_groups__ = {
         'TANH',
         ],
     'Momentum Indicators': [
+        'AC',
         'ADX',
         'ADXR',
+        'AO',
         'APO',
         'AROON',
         'AROONOSC',
         'BOP',
         'CCI',
         'CMO',
+        'CMOU',
+        'COPPOCK',
+        'DPO',
         'DX',
+        'ER',
+        'ERI',
+        'FOSC',
+        'FRACTAL',
+        'IMI',
+        'KDJ',
         'MACD',
         'MACDEXT',
         'MACDFIX',
@@ -186,36 +220,50 @@ __function_groups__ = {
         'PLUS_DI',
         'PLUS_DM',
         'PPO',
+        'QSTICK',
         'ROC',
         'ROCP',
         'ROCR',
         'ROCR100',
         'RSI',
+        'SMI',
         'STOCH',
         'STOCHF',
         'STOCHRSI',
         'TRIX',
+        'TSI',
         'ULTOSC',
+        'VHF',
+        'VORTEX',
+        'WAD',
         'WILLR',
         ],
     'Overlap Studies': [
+        'ACCBANDS',
         'BBANDS',
         'DEMA',
+        'DONCHIAN',
         'EMA',
+        'HMA',
         'HT_TRENDLINE',
         'KAMA',
+        'KC',
         'MA',
         'MAMA',
         'MAVP',
         'MIDPOINT',
         'MIDPRICE',
+        'RMA',
         'SAR',
         'SAREXT',
         'SMA',
+        'SUPERTREND',
         'T3',
         'TEMA',
         'TRIMA',
+        'VWMA',
         'WMA',
+        'ZLEMA',
         ],
     'Pattern Recognition': [
         'CDL2CROWS',
@@ -281,7 +329,9 @@ __function_groups__ = {
         'CDLXSIDEGAP3METHODS',
         ],
     'Price Transform': [
+        'AVGDEV',
         'AVGPRICE',
+        'HA',
         'MEDPRICE',
         'TYPPRICE',
         'WCLPRICE',
@@ -293,19 +343,34 @@ __function_groups__ = {
         'LINEARREG_ANGLE',
         'LINEARREG_INTERCEPT',
         'LINEARREG_SLOPE',
+        'PERCENTILE',
+        'PERCENTRANK',
         'STDDEV',
         'TSF',
         'VAR',
         ],
     'Volatility Indicators': [
+        'ADR',
         'ATR',
+        'CVI',
+        'MASSI',
         'NATR',
+        'RVI',
         'TRANGE',
         ],
     'Volume Indicators': [
         'AD',
         'ADOSC',
-        'OBV'
+        'CMF',
+        'EFI',
+        'MARKETFI',
+        'NVI',
+        'OBV',
+        'PVI',
+        'PVO',
+        'PVT',
+        'RVOL',
+        'VWAP',
         ],
     }
 
@@ -325,4 +390,4 @@ def get_function_groups():
     """
     return __function_groups__.copy()
 
-__all__ = ['get_functions', 'get_function_groups'] + __TA_FUNCTION_NAMES__ + ["stream_%s" % name for name in __TA_FUNCTION_NAMES__]
+__all__ = ['get_functions', 'get_function_groups', 'InsufficientHistory', 'stream'] + __TA_FUNCTION_NAMES__

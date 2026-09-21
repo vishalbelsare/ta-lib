@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 import re
 import sys
@@ -11,11 +9,27 @@ from talib import abstract
 # FIXME: don't return number of elements since it always equals allocation?
 
 functions = []
-include_paths = ['/usr/include', '/usr/local/include', '/opt/include', '/opt/local/include', '/opt/homebrew/Cellar/ta-lib/0.4.0/include']
 if sys.platform == 'win32':
-    include_paths = [r'c:\ta-lib\c\include']
+    include_dirs = [
+        r"c:\ta-lib\c\include",
+        r"c:\Program Files\TA-Lib\include",
+        r"c:\Program Files (x86)\TA-Lib\include",
+    ]
+else:
+    include_dirs = [
+        '/usr/include',
+        '/usr/local/include',
+        '/opt/include',
+        '/opt/local/include',
+        '/opt/homebrew/include',
+        '/opt/homebrew/opt/ta-lib/include',
+    ]
+
+if 'TA_INCLUDE_PATH' in os.environ:
+    include_dirs = os.environ['TA_INCLUDE_PATH'].split(os.pathsep)
+
 header_found = False
-for path in include_paths:
+for path in include_dirs:
     ta_func_header = os.path.join(path, 'ta-lib', 'ta_func.h')
     if os.path.exists(ta_func_header):
         header_found = True
@@ -26,15 +40,17 @@ if not header_found:
 with open(ta_func_header) as f:
     tmp = []
     for line in f:
+        if line.startswith('TA_LIB_API'):
+            line = line[10:]
         line = line.strip()
         if tmp or \
             line.startswith('TA_RetCode TA_') or \
             line.startswith('int TA_'):
-            line = re.sub('/\*[^\*]+\*/', '', line) # strip comments
+            line = re.sub(r'/\*[^\*]+\*/', '', line) # strip comments
             tmp.append(line)
             if not line:
                 s = ' '.join(tmp)
-                s = re.sub('\s+', ' ', s)
+                s = re.sub(r'\s+', ' ', s)
                 functions.append(s)
                 tmp = []
 
@@ -44,6 +60,10 @@ functions = [s for s in functions if not s.startswith('TA_RetCode TA_S_')]
 # strip non-indicators
 functions = [s for s in functions if not s.startswith('TA_RetCode TA_Set')]
 functions = [s for s in functions if not s.startswith('TA_RetCode TA_Restore')]
+
+# strip TA-Lib C's own streaming API (ta-lib >= 0.8.1). Those declarations take
+# an opaque TA_<FUNC>_Stream handle, not the batch argument shape parsed below.
+functions = [s for s in functions if '_Stream' not in s]
 
 # print headers
 print("""\
@@ -71,7 +91,7 @@ cdef np.ndarray check_array(np.ndarray real):
         raise Exception("input array type is not double")
     if real.ndim != 1:
         raise Exception("input array has wrong dimensions")
-    if not (PyArray_FLAGS(real) & np.NPY_C_CONTIGUOUS):
+    if not (PyArray_FLAGS(real) & np.NPY_ARRAY_C_CONTIGUOUS):
         real = PyArray_GETCONTIGUOUS(real)
     return real
 
@@ -105,7 +125,7 @@ cdef np.npy_intp check_length4(np.ndarray a1, np.ndarray a2, np.ndarray a3, np.n
         raise Exception("input array lengths are different")
     return length
 
-cdef np.npy_int check_begidx1(np.npy_intp length, double* a1) except -1:
+cdef np.npy_int check_begidx1(np.npy_intp length, double* a1):
     cdef:
         double val
     for i from 0 <= i < length:
@@ -114,9 +134,9 @@ cdef np.npy_int check_begidx1(np.npy_intp length, double* a1) except -1:
             continue
         return i
     else:
-        raise Exception("inputs are all NaN")
+        return length - 1
 
-cdef np.npy_int check_begidx2(np.npy_intp length, double* a1, double* a2) except -1:
+cdef np.npy_int check_begidx2(np.npy_intp length, double* a1, double* a2):
     cdef:
         double val
     for i from 0 <= i < length:
@@ -128,9 +148,9 @@ cdef np.npy_int check_begidx2(np.npy_intp length, double* a1, double* a2) except
             continue
         return i
     else:
-        raise Exception("inputs are all NaN")
+        return length - 1
 
-cdef np.npy_int check_begidx3(np.npy_intp length, double* a1, double* a2, double* a3) except -1:
+cdef np.npy_int check_begidx3(np.npy_intp length, double* a1, double* a2, double* a3):
     cdef:
         double val
     for i from 0 <= i < length:
@@ -145,9 +165,9 @@ cdef np.npy_int check_begidx3(np.npy_intp length, double* a1, double* a2, double
             continue
         return i
     else:
-        raise Exception("inputs are all NaN")
+        return length - 1
 
-cdef np.npy_int check_begidx4(np.npy_intp length, double* a1, double* a2, double* a3, double* a4) except -1:
+cdef np.npy_int check_begidx4(np.npy_intp length, double* a1, double* a2, double* a3, double* a4):
     cdef:
         double val
     for i from 0 <= i < length:
@@ -165,13 +185,13 @@ cdef np.npy_int check_begidx4(np.npy_intp length, double* a1, double* a2, double
             continue
         return i
     else:
-        raise Exception("inputs are all NaN")
+        return length - 1
 
 cdef np.ndarray make_double_array(np.npy_intp length, int lookback):
     cdef:
         np.ndarray outreal
         double* outreal_data
-    outreal = PyArray_EMPTY(1, &length, np.NPY_DOUBLE, np.NPY_DEFAULT)
+    outreal = PyArray_EMPTY(1, &length, np.NPY_DOUBLE, np.NPY_ARRAY_DEFAULT)
     outreal_data = <double*>outreal.data
     for i from 0 <= i < min(lookback, length):
         outreal_data[i] = NaN
@@ -181,7 +201,7 @@ cdef np.ndarray make_int_array(np.npy_intp length, int lookback):
     cdef:
         np.ndarray outinteger
         int* outinteger_data
-    outinteger = PyArray_EMPTY(1, &length, np.NPY_INT32, np.NPY_DEFAULT)
+    outinteger = PyArray_EMPTY(1, &length, np.NPY_INT32, np.NPY_ARRAY_DEFAULT)
     outinteger_data = <int*>outinteger.data
     for i from 0 <= i < min(lookback, length):
         outinteger_data[i] = 0
@@ -207,12 +227,16 @@ for f in functions:
     i = f.index('(')
     name = f[:i].split()[1]
     args = f[i:].split(',')
-    args = [re.sub('[\(\);]', '', s).strip() for s in args]
+    args = [re.sub(r'[\(\);]', '', s).strip() for s in args]
 
     shortname = name[3:]
     names.append(shortname)
-    func_info = abstract.Function(shortname).info
-    defaults, documentation = abstract._get_defaults_and_docs(func_info)
+    try:
+        func_info = abstract.Function(shortname).info
+        defaults, documentation = abstract._get_defaults_and_docs(func_info)
+    except:
+        print("cannot find defaults and docs for", shortname, file=sys.stderr)
+        defaults, documentation = {}, ""
 
     print('@wraparound(False)  # turn off relative indexing from end of lists')
     print('@boundscheck(False) # turn off bounds-checking for entire function')
@@ -255,7 +279,9 @@ for f in functions:
                 else:
                     print('int %s=-2**31' % var, end=' ')   # TA_INTEGER_DEFAULT
             elif arg.startswith('TA_MAType'):
-                print('int %s=0' % var, end=' ')            # TA_MAType_SMA
+                # abstract lowercases the whole name, and a prefixed one (KDJ's
+                # slowk_matype) is not spelled 'matype'.
+                print('int %s=%s' % (var, defaults.get(default_arg.lower(), 11)), end=' ') # TA_MAType_DEFAULT
             else:
                 assert False, arg
             if '[, ' not in docs:
@@ -269,6 +295,7 @@ for f in functions:
         lower_case = False
         documentation = documentation.split('\n')[2:] # discard abstract calling definition
         for line in documentation:
+            line = line.replace('Substraction', 'Subtraction')
             if 'prices' not in line and 'price' in line:
                 line = line.replace('price', 'real')
             if not line or line.isspace():
@@ -323,6 +350,13 @@ for f in functions:
         print('    length = %s.shape[0]' % inputs[0])
     else:
         print('    length = check_length%s(%s)' % (len(inputs), ', '.join(inputs)))
+
+    # No input, no output. It also must not reach check_begidx, which answers -1
+    # for it and points TA-Lib one element before the buffers.
+    empty = ['make_%s_array(0, 0)' % ('double' if arg.startswith('double') else 'int')
+             for arg in args if arg.split()[-1].startswith('out') and arg.endswith('[]')]
+    print('    if length == 0:')
+    print('        return %s' % ', '.join(empty))
 
     # check for all input values are non-NaN
     print('    begidx = check_begidx%s(length, %s)' % (len(inputs), ', '.join('<double*>(%s.data)' % s for s in inputs)))
